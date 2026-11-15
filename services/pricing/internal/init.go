@@ -218,6 +218,12 @@ func (a *App) initHealthCheck(_ context.Context) error {
 		}
 		return fmt.Errorf("Приложение останавливается")
 	})
+	a.healthCheck.AddReadinessCheck("storage loaded", func() error {
+		if a.storage.Tariffs.IsLoaded() {
+			return nil
+		}
+		return fmt.Errorf("Тарифы еще не загружены")
+	})
 
 	a.publicCloser.Add(func() error {
 		slog.Info(
