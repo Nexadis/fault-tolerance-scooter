@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sync"
 )
@@ -10,7 +11,11 @@ const (
 	LivenessPath  = "/healthcheck/live"
 	ReadinessPath = "/healthcheck/ready"
 	StartupPath   = "/healthcheck/startup"
+	CordonPath    = "/cordon"
+	UncordonPath  = "/uncordon"
 )
+
+const cordonCheck = "cordon"
 
 type Handler interface {
 	http.Handler
@@ -18,6 +23,8 @@ type Handler interface {
 	LiveEndpoint(w http.ResponseWriter, r *http.Request)
 	ReadyEndpoint(w http.ResponseWriter, r *http.Request)
 	StartupEndpoint(w http.ResponseWriter, r *http.Request)
+	CordonEndpoint(w http.ResponseWriter, r *http.Request)
+	UncordonEndpoint(w http.ResponseWriter, r *http.Request)
 
 	AddReadinessCheck(name string, check CheckFunc)
 	AddLivenessCheck(name string, check CheckFunc)
@@ -30,6 +37,8 @@ type handler struct {
 	livenessChecks  map[string]CheckFunc
 	readinessChecks map[string]CheckFunc
 	startupChecks   map[string]CheckFunc
+
+	cordon int32
 }
 
 func NewHandler() Handler {
@@ -42,6 +51,8 @@ func NewHandler() Handler {
 	h.Handle(LivenessPath, http.HandlerFunc(h.LiveEndpoint))
 	h.Handle(ReadinessPath, http.HandlerFunc(h.ReadyEndpoint))
 	h.Handle(StartupPath, http.HandlerFunc(h.StartupEndpoint))
+	h.Handle(CordonPath, http.HandlerFunc(h.CordonEndpoint))
+	h.Handle(UncordonPath, http.HandlerFunc(h.UncordonEndpoint))
 
 	return h
 }
@@ -76,6 +87,22 @@ func (h *handler) AddStartupCheck(name string, check CheckFunc) {
 	h.startupChecks[name] = check
 }
 
+func (h *handler) CordonEndpoint(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.AddReadinessCheck(cordonCheck, cordonFunc)
+}
+
+func (h *handler) UncordonEndpoint(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	h.deleteReadinessCheck(cordonCheck)
+}
+
 func (h *handler) handle(w http.ResponseWriter, r *http.Request, checks ...map[string]CheckFunc) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -101,4 +128,14 @@ func (h *handler) handle(w http.ResponseWriter, r *http.Request, checks ...map[s
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "		")
 	_ = encoder.Encode(checkResults)
+}
+
+func (h *handler) deleteReadinessCheck(name string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.readinessChecks, name)
+}
+
+func cordonFunc() error {
+	return fmt.Errorf("Readiness отключен")
 }

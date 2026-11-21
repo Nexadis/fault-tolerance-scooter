@@ -161,6 +161,8 @@ func (a *App) initAdminServer(ctx context.Context) error {
 	a.adminMux.HandleFunc(healthcheck.LivenessPath, a.healthCheck.LiveEndpoint)
 	a.adminMux.HandleFunc(healthcheck.ReadinessPath, a.healthCheck.ReadyEndpoint)
 	a.adminMux.HandleFunc(healthcheck.StartupPath, a.healthCheck.StartupEndpoint)
+	a.adminMux.HandleFunc(healthcheck.CordonPath, a.healthCheck.CordonEndpoint)
+	a.adminMux.HandleFunc(healthcheck.UncordonPath, a.healthCheck.UncordonEndpoint)
 
 	return nil
 }
