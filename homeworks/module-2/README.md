@@ -114,12 +114,12 @@
 
 По коду:
 1. pricing/internal/app.go:141 - "Приложение запущено"
-2. pricing/internal/app.go:149 - closer.CloseAll()
-3. pricing/internal/init.go:230 - "Получен сигнал остановки", terminated = 1
-4. pricing/internal/init.go:89 - "Ожидание прекращения нового трафика", terminated = 1
-5. pricing/internal/init.go:120 - a.mainServer.Stop(gracefulCtx), ждёт завершения подключений, пока не истек контекст
-6. pricing/internal/app.go:124 - err не проверяет http.ErrServerClosed, и поэтому выводится ошибка: "Ошибка основного сервера"
-5. pricing/internal/init.go:129 - "Основной сервер остановлен"
+2. pricing/internal/init.go:230 - "Получен сигнал остановки", terminated = 1
+3. pricing/internal/init.go:89 - "Ожидание прекращения нового трафика", terminated = 1
+4. pricing/internal/init.go:120 - a.mainServer.Stop(gracefulCtx), ждёт завершения подключений, пока не истек контекст
+5. pricing/internal/app.go:124 - err не проверяет http.ErrServerClosed, и поэтому выводится ошибка: "Ошибка основного сервера"
+6. pricing/internal/init.go:129 - "Основной сервер остановлен" - только тут завершается publicCloser.Wait()
+7. pricing/internal/app.go:149 - closer.CloseAll()
 ---
 
 ## 3. «Выведите один pod из трафика для диагностики»
