@@ -52,6 +52,7 @@ type App struct {
 
 	started    int32
 	terminated int32
+	cordoned   int32
 
 	// обработчик health check probe
 	healthCheck healthcheck.Handler
@@ -120,7 +121,7 @@ func (a *App) runAdminServer(_ context.Context) {
 func (a *App) Run(ctx context.Context) {
 	if a.mainServer != nil {
 		go func() {
-			if err := a.mainServer.Run(a.controllers...); err != nil {
+			if err := a.mainServer.Run(a.controllers...); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				slog.Error("Ошибка основного сервера", "error", err)
 				a.publicCloser.CloseAll()
 			}

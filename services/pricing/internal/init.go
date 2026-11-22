@@ -162,6 +162,14 @@ func (a *App) initAdminServer(ctx context.Context) error {
 	a.adminMux.HandleFunc(healthcheck.ReadinessPath, a.healthCheck.ReadyEndpoint)
 	a.adminMux.HandleFunc(healthcheck.StartupPath, a.healthCheck.StartupEndpoint)
 
+	a.adminMux.Post("/cordon", func(w http.ResponseWriter, r *http.Request) {
+		atomic.StoreInt32(&a.cordoned, 1)
+	})
+
+	a.adminMux.Post("/uncordon", func(w http.ResponseWriter, r *http.Request) {
+		atomic.StoreInt32(&a.cordoned, 0)
+	})
+
 	return nil
 }
 
@@ -197,19 +205,19 @@ func (a *App) initHealthCheck(_ context.Context) error {
 		return fmt.Errorf("Превышено допустимое число горутин")
 	})
 
-	a.healthCheck.AddStartupCheck("started", func() error {
-		if atomic.LoadInt32(&a.started) != 0 {
-			return nil
-		}
-		return fmt.Errorf("Приложение ещё не запущено")
-	})
-
 	// readiness - т.к. я уже проинициализировал все компоненты
 	a.healthCheck.AddReadinessCheck("started", func() error {
 		if atomic.LoadInt32(&a.started) != 0 {
 			return nil
 		}
 		return fmt.Errorf("Приложение ещё не запущено")
+	})
+
+	a.healthCheck.AddReadinessCheck("cordoned", func() error {
+		if atomic.LoadInt32(&a.cordoned) == 0 {
+			return nil
+		}
+		return fmt.Errorf("Приложение не принимает трафик")
 	})
 
 	a.healthCheck.AddReadinessCheck("termination", func() error {
@@ -245,6 +253,14 @@ func (a *App) initPostgres(ctx context.Context) error {
 
 func (a *App) initStorage(context.Context) error {
 	a.storage = storage.NewRegistry(a.pool)
+
+	a.healthCheck.AddReadinessCheck("tariffs loaded", func() error {
+		if a.storage.Tariffs.IsLoaded() {
+			return nil
+		}
+		return fmt.Errorf("Тарифы еще не загружены")
+	})
+
 	return nil
 }
 
